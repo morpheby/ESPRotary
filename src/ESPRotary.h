@@ -41,7 +41,6 @@ class ESPRotary {
   byte steps_per_click;
   int lower_bound;
   int upper_bound;
-  byte state;
   int increment;
   int steps = 0;
   int last_steps = 0;
