@@ -27,18 +27,27 @@ ESPRotary::ESPRotary() {
 
 /////////////////////////////////////////////////////////////////
 
-ESPRotary::ESPRotary(byte pin1, byte pin2, byte pin1Mode, byte pin2Mode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */, int increment /* = 1 */) {
+ESPRotary::ESPRotary(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */, int increment /* = 1 */) {
   ESPRotary();
   begin(pin1, pin2, pin1Mode, pin2Mode, steps_per_click, lower_bound, upper_bound, inital_pos, increment);
 }
 
 /////////////////////////////////////////////////////////////////
 
-void ESPRotary::begin(byte pin1, byte pin2, byte pin1Mode, byte pin2Mode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */, int increment /* = 1 */) {
+void ESPRotary::begin(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */, int increment /* = 1 */) {
   this->pin1 = pin1;
   this->pin2 = pin2;
-  pinMode(pin1, pin1Mode);
-  pinMode(pin2, pin2Mode);
+  switch (pinMode) {
+  case INPUT_PULLUP:
+    encoder.useInternalWeakPullResistors = puType::up;
+    break;
+  case INPUT_PULLDOWN:
+    encoder.useInternalWeakPullResistors = puType::down;
+    break;
+  default:
+    break;
+  }
+  encoder.attachFullQuad(pin1, pin2);
 
   setUpperBound(upper_bound);
   setLowerBound(lower_bound);
@@ -212,10 +221,8 @@ void ESPRotary::loop() {
 /////////////////////////////////////////////////////////////////
 
 bool ESPRotary::_wasRotated() {
-  static const int8_t factors[] = {0, 1, -1, 2, -1, 0, -2, 1, 1, -2, 0, -1, 2, -1, 1, 0};
-  int encoderState = (state & 3) | digitalRead(pin1) << 2 | digitalRead(pin2) << 3 ;
-  steps += factors[encoderState] * increment;
-  state = (encoderState >> 2);
+  int64_t difference = encoder.popCount();
+  steps += difference * increment;
   int stepDifference = abs(steps - last_steps);
   return stepDifference >= (steps_per_click * increment);
 }

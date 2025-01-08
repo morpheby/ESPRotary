@@ -12,6 +12,7 @@
 /////////////////////////////////////////////////////////////////
 
 #include "Arduino.h"
+#include "ESP32Encoder.h"
 
 /////////////////////////////////////////////////////////////////
 
@@ -46,6 +47,7 @@ class ESPRotary {
   int last_steps = 0;
   rotary_event last_event;
   rotary_direction dir;
+  ESP32Encoder encoder;
 
   bool boundsTrigger = true;
   bool retrigger_event = true;
