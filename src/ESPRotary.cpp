@@ -221,7 +221,9 @@ void ESPRotary::_checkForSpeedup(unsigned long now) {
     if (in_speedup) _setEvent(rotary_event::speedup_ended);
     return;
   }
-  steps += ((dir == rotary_direction::right ? 1 : -1) * speedup_increment * steps_per_click);
+  int stepsOffset = speedup_increment * steps_per_click;
+  steps += ((dir == rotary_direction::right ? 1 : -1) * stepsOffset);
+  encoder.setCount(steps);
   int pos = getPosition();
   // only trigger speedup when you are not "on a wall"
   if (pos > lower_bound && pos < upper_bound) {

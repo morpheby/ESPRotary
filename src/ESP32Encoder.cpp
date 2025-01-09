@@ -147,8 +147,9 @@ void ESP32Encoder::attachFullQuad(int aPinNumber, int bPinNumber) {
 }
 
 void ESP32Encoder::setCount(int64_t value) {
-	int64_t overflow = value;
-	ESP_ERROR_CHECK( pcnt_unit_clear_count(unit));
+	overflow = value;
+	xQueueReset(reinterpret_cast<QueueHandle_t>(queue));
+	ESP_ERROR_CHECK(pcnt_unit_clear_count(unit));
 }
 
 int64_t ESP32Encoder::getCount() {
@@ -163,6 +164,7 @@ int64_t ESP32Encoder::getCount() {
 
 void ESP32Encoder::clearCount() {
 	overflow = 0;
+	xQueueReset(reinterpret_cast<QueueHandle_t>(queue));
 	ESP_ERROR_CHECK(pcnt_unit_clear_count(unit));
 }
 
