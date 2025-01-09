@@ -167,7 +167,7 @@ String ESPRotary::directionToString(rotary_direction dir) const {
 /////////////////////////////////////////////////////////////////
 
 int ESPRotary::getPosition() const {
-  return steps / steps_per_click;
+  return last_steps / steps_per_click;
 }
 
 /////////////////////////////////////////////////////////////////
