@@ -41,9 +41,8 @@ class ESPRotary {
   byte steps_per_click;
   int lower_bound;
   int upper_bound;
-  int increment;
-  int steps = 0;
-  int last_steps = 0;
+  int64_t steps = 0;
+  int64_t last_steps = 0;
   rotary_event last_event;
   rotary_direction dir;
   ESP32Encoder encoder;
@@ -69,9 +68,9 @@ class ESPRotary {
 
  public:
   ESPRotary();
-  ESPRotary(byte pin1, byte pin2, byte pin1Mode = INPUT_PULLUP, byte pin2Mode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0, int increment = 1);
+  ESPRotary(byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
 
-  void begin(byte pin1, byte pin2, byte pin1Mode = INPUT_PULLUP, byte pin2Mode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0, int increment = 1);
+  void begin(byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
 
   int getPosition() const;
   void resetPosition(int p = 0, bool fireCallback = true);

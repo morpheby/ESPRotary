@@ -27,14 +27,14 @@ ESPRotary::ESPRotary() {
 
 /////////////////////////////////////////////////////////////////
 
-ESPRotary::ESPRotary(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */, int increment /* = 1 */) {
+ESPRotary::ESPRotary(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) {
   ESPRotary();
-  begin(pin1, pin2, pin1Mode, pin2Mode, steps_per_click, lower_bound, upper_bound, inital_pos, increment);
+  begin(pin1, pin2, pinMode, steps_per_click, lower_bound, upper_bound, inital_pos);
 }
 
 /////////////////////////////////////////////////////////////////
 
-void ESPRotary::begin(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */, int increment /* = 1 */) {
+void ESPRotary::begin(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) {
   this->pin1 = pin1;
   this->pin2 = pin2;
   switch (pinMode) {
@@ -51,7 +51,6 @@ void ESPRotary::begin(byte pin1, byte pin2, byte pinMode, byte steps_per_click /
 
   setUpperBound(upper_bound);
   setLowerBound(lower_bound);
-  setIncrement(increment);
   setStepsPerClick(steps_per_click);
 
   loop();
@@ -134,22 +133,11 @@ void ESPRotary::resetPosition(int p /* = 0 */, bool fireCallback /* = true */) {
   // yes...
   steps = p * steps_per_click;
   _isWithinBounds();
+  encoder.setCount(steps);
   if (fireCallback) _callCallback(change_cb);
   last_event = rotary_event::none;
   dir = rotary_direction::undefined;
   in_speedup = false;
-}
-
-/////////////////////////////////////////////////////////////////
-
-void ESPRotary::setIncrement(int increment) {
-  this->increment = increment;
-}
-
-/////////////////////////////////////////////////////////////////
-
-int ESPRotary::getIncrement() const {
-  return increment;
 }
 
 /////////////////////////////////////////////////////////////////
@@ -221,10 +209,9 @@ void ESPRotary::loop() {
 /////////////////////////////////////////////////////////////////
 
 bool ESPRotary::_wasRotated() {
-  int64_t difference = encoder.popCount();
-  steps += difference * increment;
+  steps = encoder.getCount();
   int stepDifference = abs(steps - last_steps);
-  return stepDifference >= (steps_per_click * increment);
+  return stepDifference >= steps_per_click;
 }
 
 /////////////////////////////////////////////////////////////////
@@ -234,7 +221,7 @@ void ESPRotary::_checkForSpeedup(unsigned long now) {
     if (in_speedup) _setEvent(rotary_event::speedup_ended);
     return;
   }
-  steps += ((dir == rotary_direction::right ? 1 : -1) * (speedup_increment - increment) * steps_per_click);
+  steps += ((dir == rotary_direction::right ? 1 : -1) * speedup_increment * steps_per_click);
   int pos = getPosition();
   // only trigger speedup when you are not "on a wall"
   if (pos > lower_bound && pos < upper_bound) {
