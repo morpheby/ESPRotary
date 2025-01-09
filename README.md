@@ -2,7 +2,8 @@
 
 Arduino/ESP library to simplify reading rotary encoder data.
 
-- Author: Lennart Hennigs (<https://www.lennarthennigs.de>)
+- Author: Ilya Mikhaltsou
+- Copyright (C) 2024 Ilya Mikhaltsou.
 - Copyright (C) 2017-2023 Lennart Hennigs.
 - Released under the MIT license.
 
@@ -11,13 +12,15 @@ Arduino/ESP library to simplify reading rotary encoder data.
 This library allows you read out interactions with a rotary encoder and act on them.
 It uses callback functions to be notified when the rotary encoder changes.
 
-It has been tested with Arduino, ESP8266 and ESP32 devices.
+This version only supports ESP32 with PCNT modules and ESP-IDF 5.3 or higher.
 
 To see the latest changes to the library please take a look at the [Changelog](https://github.com/LennartHennigs/ESPRotary/blob/master/CHANGELOG.md).
 
-If you find this library helpful please consider giving it a ⭐️ at [GitHub](https://github.com/LennartHennigs/ESPRotary) and/or [buy me a ☕️](https://ko-fi.com/lennart0815). Thanks!
+PCNT part is based on code from [ESP32Encoder](https://github.com/madhephaestus/ESP32Encoder) and ESP32 ESP-IDF quadrature encoder sample code.
 
 Some of the code based of this library is based on code from [PJRC](https://www.pjrc.com/teensy/td_libs_Encoder.html).
+
+NOTE: Further parts of this README may be out of date.
 
 ## How to Use
 
