@@ -14,6 +14,9 @@ It uses callback functions to be notified when the rotary encoder changes.
 
 This version only supports ESP32 with PCNT modules and ESP-IDF 5.3 or higher.
 
+The change was made because basically the library was handling fast rotations quite badly, especially on a CPU that was otherwise too busy. And
+adding `2` and `-2` in a lookup table is an error in any case.
+
 To see the latest changes to the library please take a look at the [Changelog](https://github.com/LennartHennigs/ESPRotary/blob/master/CHANGELOG.md).
 
 PCNT part is based on code from [ESP32Encoder](https://github.com/madhephaestus/ESP32Encoder) and ESP32 ESP-IDF quadrature encoder sample code.
