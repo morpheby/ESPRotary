@@ -26,17 +26,12 @@
 
 static const char* TAG_ENCODER = "ESP32Encoder";
 
-static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
-#define _ENTER_CRITICAL() portENTER_CRITICAL_SAFE(&spinlock)
-#define _EXIT_CRITICAL() portEXIT_CRITICAL_SAFE(&spinlock)
-
 puType ESP32Encoder::useInternalWeakPullResistors = puType::none;
 
 ESP32Encoder::ESP32Encoder():
 	aPinNumber{(gpio_num_t) 0},
 	bPinNumber{(gpio_num_t) 0},
 	unit{NULL},
-	count{0},
 	attached{false}
 {
     queue = (void *) xQueueCreate(10, sizeof(int));
@@ -56,9 +51,11 @@ static bool esp32encoder_pcnt_event_handler(pcnt_unit_handle_t unit, const pcnt_
 }
 
 void ESP32Encoder::detach(){
-	ESP_ERROR_CHECK(pcnt_unit_stop(unit));
-	ESP_ERROR_CHECK(pcnt_unit_enable(unit));
-	ESP_ERROR_CHECK(pcnt_del_unit(unit));
+	if (attached) {
+		ESP_ERROR_CHECK(pcnt_unit_stop(unit));
+		ESP_ERROR_CHECK(pcnt_unit_enable(unit));
+		ESP_ERROR_CHECK(pcnt_del_unit(unit));
+	}
 	unit = NULL;
 	attached = false;
 }
@@ -150,7 +147,7 @@ void ESP32Encoder::attachFullQuad(int aPinNumber, int bPinNumber) {
 }
 
 void ESP32Encoder::setCount(int64_t value) {
-	count = value;
+	int64_t overflow = value;
 	ESP_ERROR_CHECK( pcnt_unit_clear_count(unit));
 }
 
@@ -158,15 +155,14 @@ int64_t ESP32Encoder::getCount() {
     int pcnt_count = 0;
 	while (xQueueReceive(reinterpret_cast<QueueHandle_t>(queue), &pcnt_count, 0)) {
 		// Append overflowed steps to the counter
-		count += pcnt_count;
+		overflow += pcnt_count;
 	}
 	ESP_ERROR_CHECK(pcnt_unit_get_count(unit, &pcnt_count));
-	count += pcnt_count;
-	return count;
+	return pcnt_count + overflow;
 }
 
 void ESP32Encoder::clearCount() {
-	count = 0;
+	overflow = 0;
 	ESP_ERROR_CHECK(pcnt_unit_clear_count(unit));
 }
 

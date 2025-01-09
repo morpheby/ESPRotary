@@ -10,7 +10,6 @@
 
 #define 	_INT16_MAX 32766
 #define  	_INT16_MIN -32766
-#define ISR_CORE_USE_DEFAULT (0xffffffff)
 
 enum class encType {
 	single,
@@ -54,7 +53,7 @@ private:
 	gpio_num_t aPinNumber;
 	gpio_num_t bPinNumber;
 	pcnt_unit_handle_t unit;
-	int64_t count = 0;
+	int64_t overflow = 0;
 };
 
 //Added by Sloeber
