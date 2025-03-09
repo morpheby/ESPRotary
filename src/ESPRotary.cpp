@@ -223,6 +223,7 @@ void ESPRotary::_checkForSpeedup(unsigned long now) {
   }
   int stepsOffset = speedup_increment * steps_per_click;
   steps += ((dir == rotary_direction::right ? 1 : -1) * stepsOffset);
+  _isWithinBounds(false);
   encoder.setCount(steps);
   int pos = getPosition();
   // only trigger speedup when you are not "on a wall"
@@ -246,16 +247,18 @@ void ESPRotary::_callCallback(CallbackFunction callback) {
 /////////////////////////////////////////////////////////////////
 
 bool ESPRotary::_isWithinBounds(bool triggerAlerts /* = false */) {
-  int pos = getPosition();
-  if (pos > lower_bound && pos < upper_bound) return true;
+  int pos = steps / steps_per_click;
+  if (pos >= lower_bound && pos <= upper_bound) return true;
 
-  if (pos >= upper_bound) {
+  if (pos > upper_bound) {
     steps = upper_bound * steps_per_click;
+    encoder.setCount(steps);
     if (in_speedup) _setEvent(rotary_event::speedup_ended);
     if (triggerAlerts) _setEvent(rotary_event::upper_bound_hit);
 
-  } else if (pos <= lower_bound) {
+  } else if (pos < lower_bound) {
     steps = lower_bound * steps_per_click;
+    encoder.setCount(steps);
     if (in_speedup) _setEvent(rotary_event::speedup_ended);
     if (triggerAlerts) _setEvent(rotary_event::lower_bound_hit);
   }
