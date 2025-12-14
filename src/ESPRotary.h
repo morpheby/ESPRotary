@@ -12,7 +12,7 @@
 /////////////////////////////////////////////////////////////////
 
 #include "Arduino.h"
-#include "ESP32Encoder.h"
+#include "CH32VEncoder.h"
 
 /////////////////////////////////////////////////////////////////
 
@@ -45,7 +45,7 @@ class ESPRotary {
   int64_t last_steps = 0;
   rotary_event last_event;
   rotary_direction dir;
-  ESP32Encoder encoder;
+  CH32VEncoder encoder;
 
   bool boundsTrigger = true;
   bool retrigger_event = true;
@@ -68,9 +68,9 @@ class ESPRotary {
 
  public:
   ESPRotary();
-  ESPRotary(byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
+  ESPRotary(byte timerNumber, byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
 
-  void begin(byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
+  void begin(byte timerNumber, byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
 
   int getPosition() const;
   void resetPosition(int p = 0, bool fireCallback = true);

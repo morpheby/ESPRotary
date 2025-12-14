@@ -27,14 +27,14 @@ ESPRotary::ESPRotary() {
 
 /////////////////////////////////////////////////////////////////
 
-ESPRotary::ESPRotary(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) {
+ESPRotary::ESPRotary(byte timerNumber, byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) {
   ESPRotary();
-  begin(pin1, pin2, pinMode, steps_per_click, lower_bound, upper_bound, inital_pos);
+  begin(timerNumber, pin1, pin2, pinMode, steps_per_click, lower_bound, upper_bound, inital_pos);
 }
 
 /////////////////////////////////////////////////////////////////
 
-void ESPRotary::begin(byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) {
+void ESPRotary::begin(byte timerNumber, byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) {
   this->pin1 = pin1;
   this->pin2 = pin2;
   switch (pinMode) {
@@ -45,9 +45,25 @@ void ESPRotary::begin(byte pin1, byte pin2, byte pinMode, byte steps_per_click /
     encoder.useInternalWeakPullResistors = puType::down;
     break;
   default:
+    encoder.useInternalWeakPullResistors = puType::none;
     break;
   }
-  encoder.attachFullQuad(pin1, pin2);
+  TIM_TypeDef *tim;
+  switch (timerNumber) {
+  case 1:
+    tim = TIM1;
+    break;
+  case 2:
+    tim = TIM2;
+    break;
+  case 3:
+    tim = TIM3;
+    break;
+  case 4:
+    tim = TIM4;
+    break;
+  }
+  encoder.attachFullQuad(tim, pin1, pin2);
 
   setUpperBound(upper_bound);
   setLowerBound(lower_bound);
