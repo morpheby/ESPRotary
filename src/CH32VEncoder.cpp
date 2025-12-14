@@ -9,6 +9,8 @@
 #include <Arduino.h>
 #include <queue.h>
 
+#define COUNTER_MAX 65536
+
 puType CH32VEncoder::useInternalWeakPullResistors = puType::none;
 
 static QueueHandle_t timQueues[4] = {0, 0, 0, 0};
@@ -126,8 +128,10 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 	TIM_ICInit(tim, &TIM_ICInitStructure);
 
 	// 16-bit counter full range and clear counter
-	TIM_SetAutoreload(tim, 65535);
-	TIM_SetCounter(tim, 65536 / 2);
+	TIM_SetAutoreload(tim, COUNTER_MAX - 1);
+	TIM_SetCounter(tim, COUNTER_MAX / 2);
+
+	overflow = -COUNTER_MAX / 2;
 
 	// Enable update interrupt so overruns/updates can be handled in ISR
 	TIM_ITConfig(tim, TIM_IT_Update, ENABLE);
@@ -154,9 +158,9 @@ void CH32VEncoder::attachFullQuad(TIM_TypeDef *tim, int aPinNumber, int bPinNumb
 }
 
 void CH32VEncoder::setCount(int64_t value) {
-	overflow = value;
+	overflow = value - COUNTER_MAX / 2;
 	xQueueReset(queue);
-	TIM_SetCounter(tim, 0);
+	TIM_SetCounter(tim, COUNTER_MAX / 2);
 }
 
 int64_t CH32VEncoder::getCount() {
@@ -170,9 +174,9 @@ int64_t CH32VEncoder::getCount() {
 }
 
 void CH32VEncoder::clearCount() {
-	overflow = 0;
+	overflow = -COUNTER_MAX / 2;
 	xQueueReset(queue);
-	TIM_SetCounter(tim, 0);
+	TIM_SetCounter(tim, COUNTER_MAX / 2);
 }
 
 void CH32VEncoder::pauseCount() {
@@ -201,16 +205,18 @@ extern "C" {
 #if defined(TIM1_BASE)
 ISR void TIM1_UP_IRQHandler()
 {
+	static int i;
 	BaseType_t shouldYield = pdFALSE;
 
 	if (timQueues[0] != nullptr) {
-		if (TIM_GetCounter(TIM1) >= 65536 / 2) {
+		if (TIM_GetCounter(TIM1) >= COUNTER_MAX / 2) {
 			// Underflow
-			xQueueSendFromISR(timQueues[0], (void *) (-65536), &shouldYield);
+			i = -COUNTER_MAX;
 		} else {
 			// Overflow
-			xQueueSendFromISR(timQueues[0], (void *) (65536), &shouldYield);
+			i = COUNTER_MAX;
 		}
+		xQueueSendFromISR(timQueues[0], &i, &shouldYield);
 	}
 	TIM_ClearFlag(TIM1, TIM_FLAG_Update);
 
@@ -221,16 +227,18 @@ ISR void TIM1_UP_IRQHandler()
 #if defined(TIM2_BASE)
 ISR void TIM2_IRQHandler()
 {
+	static int i;
 	BaseType_t shouldYield = pdFALSE;
 
 	if (timQueues[1] != nullptr) {
-		if (TIM_GetCounter(TIM2) > 0x8FFF) {
+		if (TIM_GetCounter(TIM2) >= COUNTER_MAX / 2) {
 			// Underflow
-			xQueueSendFromISR(timQueues[1], (void *) (-65536), &shouldYield);
+			i = -COUNTER_MAX;
 		} else {
 			// Overflow
-			xQueueSendFromISR(timQueues[1], (void *) (65536), &shouldYield);
+			i = COUNTER_MAX;
 		}
+		xQueueSendFromISR(timQueues[1], &i, &shouldYield);
 	}
 	TIM_ClearFlag(TIM2, TIM_FLAG_Update);
 
@@ -242,16 +250,18 @@ ISR void TIM2_IRQHandler()
 #if defined(TIM3_BASE)
 ISR void TIM3_IRQHandler()
 {
+	static int i;
 	BaseType_t shouldYield = pdFALSE;
 
 	if (timQueues[2] != nullptr) {
-		if (TIM_GetCounter(TIM3) > 0x8FFF) {
+		if (TIM_GetCounter(TIM3) >= COUNTER_MAX / 2) {
 			// Underflow
-			xQueueSendFromISR(timQueues[2], (void *) (-65536), &shouldYield);
+			i = -COUNTER_MAX;
 		} else {
 			// Overflow
-			xQueueSendFromISR(timQueues[2], (void *) (65536), &shouldYield);
+			i = COUNTER_MAX;
 		}
+		xQueueSendFromISR(timQueues[2], &i, &shouldYield);
 	}
 	TIM_ClearFlag(TIM3, TIM_FLAG_Update);
 
@@ -262,16 +272,18 @@ ISR void TIM3_IRQHandler()
 #if defined(TIM4_BASE)
 ISR void TIM4_IRQHandler()
 {
+	static int i;
 	BaseType_t shouldYield = pdFALSE;
 
 	if (timQueues[3] != nullptr) {
-		if (TIM_GetCounter(TIM4) > 0x8FFF) {
+		if (TIM_GetCounter(TIM4) >= COUNTER_MAX / 2) {
 			// Underflow
-			xQueueSendFromISR(timQueues[3], (void *) (-65536), &shouldYield);
+			i = -COUNTER_MAX;
 		} else {
 			// Overflow
-			xQueueSendFromISR(timQueues[3], (void *) (65536), &shouldYield);
+			i = COUNTER_MAX;
 		}
+		xQueueSendFromISR(timQueues[3], &i, &shouldYield);
 	}
 	TIM_ClearFlag(TIM4, TIM_FLAG_Update);
 
