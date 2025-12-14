@@ -100,16 +100,6 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 	TIM_DeInit(tim);
 
 	// Configure encoder input capture channels (TI1 and TI2)
-	TIM_ICInitTypeDef TIM_ICInitStructure;
-	TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;
-	TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
-	TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
-	TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
-	TIM_ICInitStructure.TIM_ICFilter = 0b0011 ; // Fsampling=f=Fck_int, N=8
-	TIM_ICInit(tim, &TIM_ICInitStructure);
-
-	TIM_ICInitStructure.TIM_Channel = TIM_Channel_2;
-	TIM_ICInit(tim, &TIM_ICInitStructure);
 
 	switch (et) {
 	case encType::single:
@@ -123,9 +113,21 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 		break;
 	}
 
+	TIM_ICInitTypeDef TIM_ICInitStructure;
+	TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;
+	TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
+	TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
+	TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
+	TIM_ICInitStructure.TIM_ICFilter = 0b0011 ; // Fsampling=f=Fck_int, N=8
+	TIM_ICInit(tim, &TIM_ICInitStructure);
+
+	TIM_ICInitStructure.TIM_Channel = TIM_Channel_2;
+	TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
+	TIM_ICInit(tim, &TIM_ICInitStructure);
+
 	// 16-bit counter full range and clear counter
-	TIM_SetAutoreload(tim, 0xFFFF);
-	TIM_SetCounter(tim, 0);
+	TIM_SetAutoreload(tim, 65535);
+	TIM_SetCounter(tim, 65536 / 2);
 
 	// Enable update interrupt so overruns/updates can be handled in ISR
 	TIM_ITConfig(tim, TIM_IT_Update, ENABLE);
@@ -153,13 +155,13 @@ void CH32VEncoder::attachFullQuad(TIM_TypeDef *tim, int aPinNumber, int bPinNumb
 
 void CH32VEncoder::setCount(int64_t value) {
 	overflow = value;
-	xQueueReset(reinterpret_cast<QueueHandle_t>(queue));
+	xQueueReset(queue);
 	TIM_SetCounter(tim, 0);
 }
 
 int64_t CH32VEncoder::getCount() {
     int pcnt_count = 0;
-	while (xQueueReceive(reinterpret_cast<QueueHandle_t>(queue), &pcnt_count, 0)) {
+	while (xQueueReceive(queue, &pcnt_count, 0) == pdTRUE) {
 		// Append overflowed steps to the counter
 		overflow += pcnt_count;
 	}
@@ -169,7 +171,7 @@ int64_t CH32VEncoder::getCount() {
 
 void CH32VEncoder::clearCount() {
 	overflow = 0;
-	xQueueReset(reinterpret_cast<QueueHandle_t>(queue));
+	xQueueReset(queue);
 	TIM_SetCounter(tim, 0);
 }
 
@@ -196,73 +198,85 @@ void CH32VEncoder::setFilter(uint16_t value) {
 
 extern "C" {
 
-// #if defined(TIM1_BASE)
-// ISR void TIM1_UP_IRQHandler()
-// {
-// 	BaseType_t shouldYield = pdFALSE;
+#if defined(TIM1_BASE)
+ISR void TIM1_UP_IRQHandler()
+{
+	BaseType_t shouldYield = pdFALSE;
 
-// 	if (timQueues[0] != nullptr) {
-// 		if (TIM_GetCounter(TIM1) > 0x8FFF) {
-// 			// Underflow
-// 			xQueueSendFromISR(timQueues[0], (void *) (-65536), &shouldYield);
-// 		}
-// 	}
-// 	TIM_ClearFlag(TIM1, TIM_FLAG_Update);
+	if (timQueues[0] != nullptr) {
+		if (TIM_GetCounter(TIM1) >= 65536 / 2) {
+			// Underflow
+			xQueueSendFromISR(timQueues[0], (void *) (-65536), &shouldYield);
+		} else {
+			// Overflow
+			xQueueSendFromISR(timQueues[0], (void *) (65536), &shouldYield);
+		}
+	}
+	TIM_ClearFlag(TIM1, TIM_FLAG_Update);
 
-// 	portYIELD_FROM_ISR(shouldYield);
-// }
-// #endif //TIM1_BASE
+	portYIELD_FROM_ISR(shouldYield);
+}
+#endif //TIM1_BASE
 
-// #if defined(TIM2_BASE)
-// ISR void TIM2_IRQHandler()
-// {
-// 	BaseType_t shouldYield = pdFALSE;
+#if defined(TIM2_BASE)
+ISR void TIM2_IRQHandler()
+{
+	BaseType_t shouldYield = pdFALSE;
 
-// 	if (timQueues[1] != nullptr) {
-// 		if (TIM_GetCounter(TIM2) > 0x8FFF) {
-// 			// Underflow
-// 			xQueueSendFromISR(timQueues[1], (void *) (-65536), &shouldYield);
-// 		}
-// 	}
-// 	TIM_ClearFlag(TIM2, TIM_FLAG_Update);
+	if (timQueues[1] != nullptr) {
+		if (TIM_GetCounter(TIM2) > 0x8FFF) {
+			// Underflow
+			xQueueSendFromISR(timQueues[1], (void *) (-65536), &shouldYield);
+		} else {
+			// Overflow
+			xQueueSendFromISR(timQueues[1], (void *) (65536), &shouldYield);
+		}
+	}
+	TIM_ClearFlag(TIM2, TIM_FLAG_Update);
 
-// 	portYIELD_FROM_ISR(shouldYield);
-// }
+	portYIELD_FROM_ISR(shouldYield);
+}
 
-// #endif //TIM2_BASE
+#endif //TIM2_BASE
 
-// #if defined(TIM3_BASE)
-// ISR void TIM3_IRQHandler()
-// {
-// 	BaseType_t shouldYield = pdFALSE;
+#if defined(TIM3_BASE)
+ISR void TIM3_IRQHandler()
+{
+	BaseType_t shouldYield = pdFALSE;
 
-// 	if (timQueues[2] != nullptr) {
-// 		if (TIM_GetCounter(TIM3) > 0x8FFF) {
-// 			// Underflow
-// 			xQueueSendFromISR(timQueues[2], (void *) (-65536), &shouldYield);
-// 		}
-// 	}
-// 	TIM_ClearFlag(TIM3, TIM_FLAG_Update);
+	if (timQueues[2] != nullptr) {
+		if (TIM_GetCounter(TIM3) > 0x8FFF) {
+			// Underflow
+			xQueueSendFromISR(timQueues[2], (void *) (-65536), &shouldYield);
+		} else {
+			// Overflow
+			xQueueSendFromISR(timQueues[2], (void *) (65536), &shouldYield);
+		}
+	}
+	TIM_ClearFlag(TIM3, TIM_FLAG_Update);
 
-// 	portYIELD_FROM_ISR(shouldYield);
-// }
-// #endif //TIM3_BASE
+	portYIELD_FROM_ISR(shouldYield);
+}
+#endif //TIM3_BASE
 
-// #if defined(TIM4_BASE)
-// ISR void TIM4_IRQHandler()
-// {
-// 	BaseType_t shouldYield = pdFALSE;
+#if defined(TIM4_BASE)
+ISR void TIM4_IRQHandler()
+{
+	BaseType_t shouldYield = pdFALSE;
 
-// 	if (timQueues[3] != nullptr) {
-// 		if (TIM_GetCounter(TIM4) > 0x8FFF) {
-// 			// Underflow
-// 			xQueueSendFromISR(timQueues[3], (void *) (-65536), &shouldYield);
-// 		}
-// 	}
-// 	TIM_ClearFlag(TIM4, TIM_FLAG_Update);
+	if (timQueues[3] != nullptr) {
+		if (TIM_GetCounter(TIM4) > 0x8FFF) {
+			// Underflow
+			xQueueSendFromISR(timQueues[3], (void *) (-65536), &shouldYield);
+		} else {
+			// Overflow
+			xQueueSendFromISR(timQueues[3], (void *) (65536), &shouldYield);
+		}
+	}
+	TIM_ClearFlag(TIM4, TIM_FLAG_Update);
 
-// 	portYIELD_FROM_ISR(shouldYield);
-// }
-// #endif //TIM4_BASE
+	portYIELD_FROM_ISR(shouldYield);
+}
+#endif //TIM4_BASE
 
 }
