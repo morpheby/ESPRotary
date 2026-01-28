@@ -216,7 +216,12 @@ ISR void TIM1_UP_IRQHandler()
 			// Overflow
 			i = COUNTER_MAX;
 		}
-		xQueueSendFromISR(timQueues[0], &i, &shouldYield);
+		if (xQueueIsQueueFullFromISR(timQueues[0]) == pdFALSE) {
+			xQueueSendFromISR(timQueues[0], &i, &shouldYield);
+		} else {
+			// Queue full, update counter to max value
+			TIM_SetCounter(TIM1, i > 0 ? COUNTER_MAX - 1 : 0);
+		}
 	}
 	TIM_ClearFlag(TIM1, TIM_FLAG_Update);
 
@@ -238,7 +243,12 @@ ISR void TIM2_IRQHandler()
 			// Overflow
 			i = COUNTER_MAX;
 		}
-		xQueueSendFromISR(timQueues[1], &i, &shouldYield);
+		if (xQueueIsQueueFullFromISR(timQueues[1]) == pdFALSE) {
+			xQueueSendFromISR(timQueues[1], &i, &shouldYield);
+		} else {
+			// Queue full, update counter to max value
+			TIM_SetCounter(TIM2, i > 0 ? COUNTER_MAX - 1 : 0);
+		}
 	}
 	TIM_ClearFlag(TIM2, TIM_FLAG_Update);
 
@@ -261,7 +271,12 @@ ISR void TIM3_IRQHandler()
 			// Overflow
 			i = COUNTER_MAX;
 		}
-		xQueueSendFromISR(timQueues[2], &i, &shouldYield);
+		if (xQueueIsQueueFullFromISR(timQueues[2]) == pdFALSE) {
+			xQueueSendFromISR(timQueues[2], &i, &shouldYield);
+		} else {
+			// Queue full, update counter to max value
+			TIM_SetCounter(TIM3, i > 0 ? COUNTER_MAX - 1 : 0);
+		}
 	}
 	TIM_ClearFlag(TIM3, TIM_FLAG_Update);
 
@@ -283,7 +298,12 @@ ISR void TIM4_IRQHandler()
 			// Overflow
 			i = COUNTER_MAX;
 		}
-		xQueueSendFromISR(timQueues[3], &i, &shouldYield);
+		if (xQueueIsQueueFullFromISR(timQueues[3]) == pdFALSE) {
+			xQueueSendFromISR(timQueues[3], &i, &shouldYield);
+		} else {
+			// Queue full, update counter to max value
+			TIM_SetCounter(TIM4, i > 0 ? COUNTER_MAX - 1 : 0);
+		}
 	}
 	TIM_ClearFlag(TIM4, TIM_FLAG_Update);
 
