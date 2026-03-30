@@ -5,7 +5,9 @@
  *      Author: Ilya Mikhaltsou
  */
 
+#include "core_config.h"
 #include <CH32VEncoder.h>
+#include <ch32vxxx/ch32vxxx_isr.h>
 #include <Arduino.h>
 #include <queue.h>
 
@@ -203,7 +205,7 @@ void CH32VEncoder::setFilter(uint16_t value) {
 extern "C" {
 
 #if defined(TIM1_BASE)
-ISR void TIM1_UP_IRQHandler()
+_ISR_DEF(TIM1_UP_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
@@ -230,7 +232,7 @@ ISR void TIM1_UP_IRQHandler()
 #endif //TIM1_BASE
 
 #if defined(TIM2_BASE)
-ISR void TIM2_IRQHandler()
+_ISR_DEF(TIM2_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
@@ -258,7 +260,7 @@ ISR void TIM2_IRQHandler()
 #endif //TIM2_BASE
 
 #if defined(TIM3_BASE)
-ISR void TIM3_IRQHandler()
+_ISR_DEF(TIM3_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
@@ -285,7 +287,7 @@ ISR void TIM3_IRQHandler()
 #endif //TIM3_BASE
 
 #if defined(TIM4_BASE)
-ISR void TIM4_IRQHandler()
+_ISR_DEF(TIM4_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
