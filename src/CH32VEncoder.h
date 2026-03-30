@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <ch32v20x_tim.h>
+#include <ch32yyxx_tim.h>
 #include <queue.h>
 
 #define 	_INT16_MAX 32766
