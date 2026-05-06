@@ -19,9 +19,7 @@ static QueueHandle_t timQueues[4] = {0, 0, 0, 0};
 
 CH32VEncoder::CH32VEncoder():
 	attached{false},
-	tim{TIM1},
-	channelA{0},
-	channelB{0}
+	tim{TIM1}
 {
 }
 

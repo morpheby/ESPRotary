@@ -46,8 +46,6 @@ private:
 	void attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, encType et);
 	bool attached;
 	TIM_TypeDef *tim;
-	int channelA;
-	int channelB;
 	int64_t overflow = 0;
 	QueueHandle_t queue;
 };
