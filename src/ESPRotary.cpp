@@ -27,8 +27,8 @@ ESPRotary::ESPRotary() {
 
 /////////////////////////////////////////////////////////////////
 
-ESPRotary::ESPRotary(byte timerNumber, byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) {
-  ESPRotary();
+ESPRotary::ESPRotary(byte timerNumber, byte pin1, byte pin2, byte pinMode, byte steps_per_click /* = 1 */, int lower_bound /* = INT16_MIN */, int upper_bound /* = INT16_MAX */, int inital_pos /* = 0 */) :
+  ESPRotary() {
   begin(timerNumber, pin1, pin2, pinMode, steps_per_click, lower_bound, upper_bound, inital_pos);
 }
 

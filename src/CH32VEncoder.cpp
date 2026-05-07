@@ -5,6 +5,7 @@
  *      Author: Ilya Mikhaltsou
  */
 
+#include "ch32v30x_isr.h"
 #include "core_config.h"
 #include <CH32VEncoder.h>
 #include <ch32vxxx/ch32vxxx_isr.h>
@@ -12,6 +13,17 @@
 #include <queue.h>
 
 #define COUNTER_MAX 65536
+
+#ifdef TIM_MODULE_OPTIONAL
+#define _ENCODER_ISR(x) _REMAP_ISR(x, CH32VEnc_ISR)
+#else
+#define _ENCODER_ISR(x) _ISR_DEF(x)
+#endif
+
+_ENCODER_ISR(TIM1_UP_IRQHandler);
+_ENCODER_ISR(TIM2_IRQHandler);
+_ENCODER_ISR(TIM3_IRQHandler);
+_ENCODER_ISR(TIM4_IRQHandler);
 
 puType CH32VEncoder::useInternalWeakPullResistors = puType::none;
 
@@ -133,6 +145,19 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 
 	overflow = -COUNTER_MAX / 2;
 
+#ifdef TIM_MODULE_OPTIONAL
+	// Set ISR handlers
+	if (tim == TIM1) {
+		ISR_Set_TIM1_UP_IRQHandler(_REMAP_ISR_NAME(TIM1_UP_IRQHandler, CH32VEnc_ISR));
+	} else if (tim == TIM2) {
+		ISR_Set_TIM2_IRQHandler(_REMAP_ISR_NAME(TIM2_IRQHandler, CH32VEnc_ISR));
+	} else if (tim == TIM3) {
+		ISR_Set_TIM3_IRQHandler(_REMAP_ISR_NAME(TIM3_IRQHandler, CH32VEnc_ISR));
+	} else if (tim == TIM4) {
+		ISR_Set_TIM4_IRQHandler(_REMAP_ISR_NAME(TIM4_IRQHandler, CH32VEnc_ISR));
+	}
+#endif
+
 	// Enable update interrupt so overruns/updates can be handled in ISR
 	TIM_ITConfig(tim, TIM_IT_Update, ENABLE);
 
@@ -203,7 +228,7 @@ void CH32VEncoder::setFilter(uint16_t value) {
 extern "C" {
 
 #if defined(TIM1_BASE)
-_ISR_DEF(TIM1_UP_IRQHandler)
+_ENCODER_ISR(TIM1_UP_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
@@ -230,7 +255,7 @@ _ISR_DEF(TIM1_UP_IRQHandler)
 #endif //TIM1_BASE
 
 #if defined(TIM2_BASE)
-_ISR_DEF(TIM2_IRQHandler)
+_ENCODER_ISR(TIM2_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
@@ -258,7 +283,7 @@ _ISR_DEF(TIM2_IRQHandler)
 #endif //TIM2_BASE
 
 #if defined(TIM3_BASE)
-_ISR_DEF(TIM3_IRQHandler)
+_ENCODER_ISR(TIM3_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
@@ -285,7 +310,7 @@ _ISR_DEF(TIM3_IRQHandler)
 #endif //TIM3_BASE
 
 #if defined(TIM4_BASE)
-_ISR_DEF(TIM4_IRQHandler)
+_ENCODER_ISR(TIM4_IRQHandler)
 {
 	static int i;
 	BaseType_t shouldYield = pdFALSE;
