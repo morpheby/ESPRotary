@@ -40,10 +40,26 @@ CH32VEncoder::~CH32VEncoder() {
 }
 
 void CH32VEncoder::detach(){
-	attached = false;
-	while (1) {
-		// NOT IMPLEMENTED
+	if (!attached) {
+		return;
 	}
+
+	TIM_Cmd(tim, DISABLE);
+	TIM_ITConfig(tim, TIM_IT_Update, DISABLE);
+
+	if (tim == TIM1) {
+		NVIC_DisableIRQ(TIM1_UP_IRQn);
+	} else if (tim == TIM2) {
+		NVIC_DisableIRQ(TIM2_IRQn);
+	} else if (tim == TIM3) {
+		NVIC_DisableIRQ(TIM3_IRQn);
+	} else if (tim == TIM4) {
+		NVIC_DisableIRQ(TIM4_IRQn);
+	}
+
+	TIM_DeInit(tim);
+
+	attached = false;
 }
 
 void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, encType et) {
@@ -102,6 +118,17 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 		rcc_periph = RCC_APB2Periph_TIM1;
 		irq = TIM1_UP_IRQn;
 	}
+	
+	if (tim == TIM1) {
+		queue = timQueues[0];
+	} else if (tim == TIM2) {
+		queue = timQueues[1];
+	} else if (tim == TIM3) {
+		queue = timQueues[2];
+	} else if (tim == TIM4) {
+		queue = timQueues[3];
+	}
+
 	if (rcc_periph) {
 		if (rcc_periph & RCC_APB2Periph_TIM1) {
 			RCC_APB2PeriphClockCmd(rcc_periph, ENABLE);
