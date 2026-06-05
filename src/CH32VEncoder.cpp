@@ -189,7 +189,7 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 	TIM_ITConfig(tim, TIM_IT_Update, ENABLE);
 
 	NVIC_EnableIRQ(irq);
-	NVIC_SetPriority(irq, 0x20);
+	NVIC_SetPriority(irq, 0xA0);
 
 	// start timer counting
 	TIM_Cmd(tim, ENABLE);
