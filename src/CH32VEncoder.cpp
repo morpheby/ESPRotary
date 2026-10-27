@@ -43,7 +43,58 @@ static bool matchesPin(PinName requested, PinName mapped) {
 	return (static_cast<uint32_t>(requested) & ~ALTX_MASK)
 		== (static_cast<uint32_t>(mapped) & ~ALTX_MASK);
 }
+
+// The quadrature decoder only reads TI1/TI2: A and B must be CH1/CH2 (in
+// either order) of one timer with a common AFIO routing.
+static bool findRouting(uint32_t pinChannelA, uint32_t pinChannelB,
+						const PinMap *&mapA, const PinMap *&mapB) {
+	const PinName pinA = digitalPinToPinName(pinChannelA);
+	const PinName pinB = digitalPinToPinName(pinChannelB);
+	mapA = nullptr;
+	mapB = nullptr;
+	for (const PinMap *a = PinMap_TIM; a->pin != NC; ++a) {
+		if (!matchesPin(pinA, a->pin) || CH_PIN_INVERTED(a->function)) {
+			continue;
+		}
+		const uint32_t channelA = CH_PIN_CHANNEL(a->function);
+		if (channelA != 1 && channelA != 2) {
+			continue;
+		}
+		for (const PinMap *b = PinMap_TIM; b->pin != NC; ++b) {
+			if (matchesPin(pinB, b->pin) && a->peripheral == b->peripheral
+				&& !CH_PIN_INVERTED(b->function)
+				&& CH_PIN_AFNUM(a->function) == CH_PIN_AFNUM(b->function)
+				&& CH_PIN_CHANNEL(b->function) == 3 - channelA) {
+				mapA = a;
+				mapB = b;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+static int timerIndexOf(const TIM_TypeDef *tim) {
+	if (tim == TIM1) return 0;
+	if (tim == TIM2) return 1;
+	if (tim == TIM3) return 2;
+	if (tim == TIM4) return 3;
+	return -1;
+}
 #endif
+
+bool CH32VEncoder::supportsPins(uint32_t pinChannelA, uint32_t pinChannelB) {
+#ifdef TIM_MODULE_ENABLED
+	const PinMap *mapA;
+	const PinMap *mapB;
+	return findRouting(pinChannelA, pinChannelB, mapA, mapB)
+		&& timerIndexOf(static_cast<const TIM_TypeDef *>(mapA->peripheral)) >= 0;
+#else
+	(void)pinChannelA;
+	(void)pinChannelB;
+	return false;
+#endif
+}
 
 CH32VEncoder::CH32VEncoder():
 	attached{false},
@@ -92,40 +143,15 @@ void CH32VEncoder::attach(uint32_t pinChannelA, uint32_t pinChannelB, encType et
 	_Error_Handler("Encoder requires TIM_MODULE_ENABLED", 0);
 	return;
 #else
-	const PinName pinA = digitalPinToPinName(pinChannelA);
-	const PinName pinB = digitalPinToPinName(pinChannelB);
-	const PinMap *mapA = nullptr;
-	const PinMap *mapB = nullptr;
-	for (const PinMap *a = PinMap_TIM; a->pin != NC && !mapA; ++a) {
-		if (!matchesPin(pinA, a->pin) || CH_PIN_INVERTED(a->function)) {
-			continue;
-		}
-		const uint32_t channelA = CH_PIN_CHANNEL(a->function);
-		if (channelA != 1 && channelA != 2) {
-			continue;
-		}
-		for (const PinMap *b = PinMap_TIM; b->pin != NC; ++b) {
-			if (matchesPin(pinB, b->pin) && a->peripheral == b->peripheral
-				&& !CH_PIN_INVERTED(b->function)
-				&& CH_PIN_AFNUM(a->function) == CH_PIN_AFNUM(b->function)
-				&& CH_PIN_CHANNEL(b->function) == 3 - channelA) {
-				mapA = a;
-				mapB = b;
-				break;
-			}
-		}
-	}
-	if (!mapA) {
+	const PinMap *mapA;
+	const PinMap *mapB;
+	if (!findRouting(pinChannelA, pinChannelB, mapA, mapB)) {
 		_Error_Handler("Encoder pins require matching TIM CH1/CH2 routing", 0);
 		return;
 	}
 
 	TIM_TypeDef *tim = static_cast<TIM_TypeDef *>(mapA->peripheral);
-	int timerIndex = -1;
-	if (tim == TIM1) timerIndex = 0;
-	else if (tim == TIM2) timerIndex = 1;
-	else if (tim == TIM3) timerIndex = 2;
-	else if (tim == TIM4) timerIndex = 3;
+	const int timerIndex = timerIndexOf(tim);
 	if (timerIndex < 0 || timOwners[timerIndex]) {
 		_Error_Handler("Encoder timer unsupported or already in use", timerIndex);
 		return;

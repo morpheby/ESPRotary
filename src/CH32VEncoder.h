@@ -41,6 +41,8 @@ public:
 	bool isAttached(){return attached;}
 	void setCount(int64_t value);
 	void setFilter(uint16_t value);
+	// True if attach() accepts these pins (A/B on CH1/CH2 of one supported timer)
+	static bool supportsPins(uint32_t pinChannelA, uint32_t pinChannelB);
 	static puType useInternalWeakPullResistors;
 private:
 	void attach(uint32_t pinChannelA, uint32_t pinChannelB, encType et);
