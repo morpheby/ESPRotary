@@ -12,18 +12,39 @@ Arduino/ESP library to simplify reading rotary encoder data.
 This library allows you read out interactions with a rotary encoder and act on them.
 It uses callback functions to be notified when the rotary encoder changes.
 
-This version only supports ESP32 with PCNT modules and ESP-IDF 5.3 or higher.
+This branch uses CH32 hardware timers in encoder mode.
 
-The change was made because basically the library was handling fast rotations quite badly, especially on a CPU that was otherwise too busy. And
-adding `2` and `-2` in a lookup table is an error in any case.
+Enable `TIM_MODULE_ENABLED` and `TIM_MODULE_OPTIONAL` in the Arduino board
+variant. The latter enables remappable interrupt handlers, allowing this
+library and Arduino `HardwareTimer` to coexist on different timers.
 
-To see the latest changes to the library please take a look at the [Changelog](https://github.com/LennartHennigs/ESPRotary/blob/master/CHANGELOG.md).
+Initialize with Arduino pin numbers; the timer-number argument has been removed:
 
-PCNT part is based on code from [ESP32Encoder](https://github.com/madhephaestus/ESP32Encoder) and ESP32 ESP-IDF quadrature encoder sample code.
+```cpp
+ESPRotary rotary;
+rotary.begin(PA6, PA7, INPUT, 4);
+```
 
-Some of the code based of this library is based on code from [PJRC](https://www.pjrc.com/teensy/td_libs_Encoder.html).
+The lower-level `CH32VEncoder::attachFullQuad`, `attachHalfQuad` and
+`attachSingleEdge` likewise take only the two Arduino pin numbers.
+Both inputs must map to non-complementary CH1/CH2 of the same supported timer
+(TIM1-TIM4), with compatible AFIO remapping in the board's `PinMap_TIM`.
+Plain pin numbers search their available ALT entries; explicit ALT aliases
+restrict the selection. Pin arguments retain their ALT bits.
+AFIO remapping is applied with the pins kept in input mode.
 
-NOTE: Further parts of this README may be out of date.
+Either A/B order is supported: swapping them reverses the count direction.
+Pull-up, pull-down and external-pull (`INPUT`) modes are supported.
+Missing/incompatible mappings, unsupported timers,
+duplicate encoder ownership and queue allocation failure call Arduino's
+`_Error_Handler`; there is no fallback to another timer.
+
+An encoder exclusively owns its timer. Do not assign that same peripheral
+to `HardwareTimer` or PWM while the encoder is attached. Destroying or
+reattaching an encoder releases its timer; overflow queues are reset on reuse.
+
+NOTE: Further parts of this README describe the upstream API and examples and
+may be out of date.
 
 ## How to Use
 

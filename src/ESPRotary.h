@@ -37,10 +37,10 @@ enum class rotary_event {
 class ESPRotary {
  protected:
   int id;
-  byte pin1, pin2;
+  uint32_t pin1, pin2;
   byte steps_per_click;
-  int lower_bound;
-  int upper_bound;
+  int lower_bound = INT16_MIN;
+  int upper_bound = INT16_MAX;
   int64_t steps = 0;
   int64_t last_steps = 0;
   rotary_event last_event;
@@ -68,9 +68,9 @@ class ESPRotary {
 
  public:
   ESPRotary();
-  ESPRotary(byte timerNumber, byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
+  ESPRotary(uint32_t pin1, uint32_t pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
 
-  void begin(byte timerNumber, byte pin1, byte pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
+  void begin(uint32_t pin1, uint32_t pin2, byte pinMode = INPUT_PULLUP, byte steps_per_click = 1, int lower_bound = INT16_MIN, int upper_bound = INT16_MAX, int inital_pos = 0);
 
   int getPosition() const;
   void resetPosition(int p = 0, bool fireCallback = true);

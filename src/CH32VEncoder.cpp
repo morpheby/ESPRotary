@@ -11,6 +11,8 @@
 #include <ch32vxxx/ch32vxxx_isr.h>
 #include <Arduino.h>
 #include <queue.h>
+#include <PeripheralPins.h>
+#include <pinmap.h>
 
 #define COUNTER_MAX 65536
 
@@ -28,6 +30,20 @@ _ENCODER_ISR(TIM4_IRQHandler);
 puType CH32VEncoder::useInternalWeakPullResistors = puType::none;
 
 static QueueHandle_t timQueues[4] = {0, 0, 0, 0};
+static CH32VEncoder *timOwners[4] = {};
+
+#ifdef TIM_MODULE_ENABLED
+static bool matchesPin(PinName requested, PinName mapped) {
+	if (requested == NC) {
+		return false;
+	}
+	if (static_cast<uint32_t>(requested) & ALTX_MASK) {
+		return requested == mapped;
+	}
+	return (static_cast<uint32_t>(requested) & ~ALTX_MASK)
+		== (static_cast<uint32_t>(mapped) & ~ALTX_MASK);
+}
+#endif
 
 CH32VEncoder::CH32VEncoder():
 	attached{false},
@@ -59,28 +75,82 @@ void CH32VEncoder::detach(){
 
 	TIM_DeInit(tim);
 
+	for (auto &owner : timOwners) {
+		if (owner == this) {
+			owner = nullptr;
+		}
+	}
 	attached = false;
 }
 
-void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, encType et) {
+void CH32VEncoder::attach(uint32_t pinChannelA, uint32_t pinChannelB, encType et) {
 	if (attached) {
+		detach();
+	}
+
+#ifndef TIM_MODULE_ENABLED
+	_Error_Handler("Encoder requires TIM_MODULE_ENABLED", 0);
+	return;
+#else
+	const PinName pinA = digitalPinToPinName(pinChannelA);
+	const PinName pinB = digitalPinToPinName(pinChannelB);
+	const PinMap *mapA = nullptr;
+	const PinMap *mapB = nullptr;
+	for (const PinMap *a = PinMap_TIM; a->pin != NC && !mapA; ++a) {
+		if (!matchesPin(pinA, a->pin) || CH_PIN_INVERTED(a->function)) {
+			continue;
+		}
+		const uint32_t channelA = CH_PIN_CHANNEL(a->function);
+		if (channelA != 1 && channelA != 2) {
+			continue;
+		}
+		for (const PinMap *b = PinMap_TIM; b->pin != NC; ++b) {
+			if (matchesPin(pinB, b->pin) && a->peripheral == b->peripheral
+				&& !CH_PIN_INVERTED(b->function)
+				&& CH_PIN_AFNUM(a->function) == CH_PIN_AFNUM(b->function)
+				&& CH_PIN_CHANNEL(b->function) == 3 - channelA) {
+				mapA = a;
+				mapB = b;
+				break;
+			}
+		}
+	}
+	if (!mapA) {
+		_Error_Handler("Encoder pins require matching TIM CH1/CH2 routing", 0);
 		return;
 	}
 
-	// store timer instance
-	this->tim = tim;
-	
-	// Configure GPIOs as inputs (use Arduino-compatible helpers if available)
-	if(useInternalWeakPullResistors == puType::down){
-		pinMode(pinChannelA, INPUT_PULLUP);
-		pinMode(pinChannelB, INPUT_PULLUP);
-	} else if(useInternalWeakPullResistors == puType::up){
-		pinMode(pinChannelA, INPUT_PULLDOWN);
-		pinMode(pinChannelB, INPUT_PULLDOWN);
-	} else {
-		pinMode(pinChannelA, INPUT);
-		pinMode(pinChannelB, INPUT);
+	TIM_TypeDef *tim = static_cast<TIM_TypeDef *>(mapA->peripheral);
+	int timerIndex = -1;
+	if (tim == TIM1) timerIndex = 0;
+	else if (tim == TIM2) timerIndex = 1;
+	else if (tim == TIM3) timerIndex = 2;
+	else if (tim == TIM4) timerIndex = 3;
+	if (timerIndex < 0 || timOwners[timerIndex]) {
+		_Error_Handler("Encoder timer unsupported or already in use", timerIndex);
+		return;
 	}
+	if (!timQueues[timerIndex]) {
+		timQueues[timerIndex] = xQueueCreate(10, sizeof(int));
+	}
+	if (!timQueues[timerIndex]) {
+		_Error_Handler("Encoder queue allocation failed", timerIndex);
+		return;
+	}
+	queue = timQueues[timerIndex];
+	xQueueReset(queue);
+	this->tim = tim;
+	reversed = CH_PIN_CHANNEL(mapA->function) == 2;
+
+	// Apply the board's AFIO routing without briefly driving the encoder pins.
+	for (const PinMap *map : {mapA, mapB}) {
+		pin_function(map->pin, CH_PIN_DATA(CH_MODE_INPUT, CH_CNF_INPUT_FLOAT,
+			NOPULL, CH_PIN_AFNUM(map->function)));
+	}
+	const uint32_t mode = useInternalWeakPullResistors == puType::up ? INPUT_PULLUP
+		: useInternalWeakPullResistors == puType::down ? INPUT_PULLDOWN : INPUT;
+	pinMode(pinChannelA, mode);
+	pinMode(pinChannelB, mode);
 
 	// Enable timer peripheral clock and pick IRQ based on timer instance
 	uint32_t rcc_periph = 0;
@@ -88,45 +158,15 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 	if (tim == TIM1) {
 		rcc_periph = RCC_APB2Periph_TIM1;
 		irq = TIM1_UP_IRQn;
-		if (timQueues[0] == nullptr) {
-    		timQueues[0] = xQueueCreate(10, sizeof(int));
-			queue = timQueues[0];
-		}
 	} else if (tim == TIM2) {
 		rcc_periph = RCC_APB1Periph_TIM2;
 		irq = TIM2_IRQn;
-		if (timQueues[1] == nullptr) {
-    		timQueues[1] = xQueueCreate(10, sizeof(int));
-			queue = timQueues[1];
-		}
 	} else if (tim == TIM3) {
 		rcc_periph = RCC_APB1Periph_TIM3;
 		irq = TIM3_IRQn;
-		if (timQueues[2] == nullptr) {
-    		timQueues[2] = xQueueCreate(10, sizeof(int));
-			queue = timQueues[2];
-		}
 	} else if (tim == TIM4) {
 		rcc_periph = RCC_APB1Periph_TIM4;
 		irq = TIM4_IRQn;
-		if (timQueues[3] == nullptr) {
-    		timQueues[3] = xQueueCreate(10, sizeof(int));
-			queue = timQueues[3];
-		}
-	} else {
-		// unknown timer; fallback to TIM1
-		rcc_periph = RCC_APB2Periph_TIM1;
-		irq = TIM1_UP_IRQn;
-	}
-	
-	if (tim == TIM1) {
-		queue = timQueues[0];
-	} else if (tim == TIM2) {
-		queue = timQueues[1];
-	} else if (tim == TIM3) {
-		queue = timQueues[2];
-	} else if (tim == TIM4) {
-		queue = timQueues[3];
 	}
 
 	if (rcc_periph) {
@@ -145,7 +185,7 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 	switch (et) {
 	case encType::single:
 	case encType::half:
-		TIM_EncoderInterfaceConfig(tim, TIM_EncoderMode_TI1,
+		TIM_EncoderInterfaceConfig(tim, reversed ? TIM_EncoderMode_TI2 : TIM_EncoderMode_TI1,
 								   TIM_ICPolarity_Rising, TIM_ICPolarity_Rising);
 		break;
 	case encType::full:
@@ -195,22 +235,24 @@ void CH32VEncoder::attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, en
 	TIM_Cmd(tim, ENABLE);
 
 	attached = true;
+	timOwners[timerIndex] = this;
+#endif
 }
 
-void CH32VEncoder::attachHalfQuad(TIM_TypeDef *tim, int aPinNumber, int bPinNumber) {
-	attach(tim, aPinNumber, bPinNumber, encType::half);
+void CH32VEncoder::attachHalfQuad(uint32_t aPinNumber, uint32_t bPinNumber) {
+	attach(aPinNumber, bPinNumber, encType::half);
 }
 
-void CH32VEncoder::attachSingleEdge(TIM_TypeDef *tim, int aPinNumber, int bPinNumber) {
-	attach(tim, aPinNumber, bPinNumber, encType::single);
+void CH32VEncoder::attachSingleEdge(uint32_t aPinNumber, uint32_t bPinNumber) {
+	attach(aPinNumber, bPinNumber, encType::single);
 }
 
-void CH32VEncoder::attachFullQuad(TIM_TypeDef *tim, int aPinNumber, int bPinNumber) {
-	attach(tim, aPinNumber, bPinNumber, encType::full);
+void CH32VEncoder::attachFullQuad(uint32_t aPinNumber, uint32_t bPinNumber) {
+	attach(aPinNumber, bPinNumber, encType::full);
 }
 
 void CH32VEncoder::setCount(int64_t value) {
-	overflow = value - COUNTER_MAX / 2;
+	overflow = (reversed ? -value : value) - COUNTER_MAX / 2;
 	xQueueReset(queue);
 	TIM_SetCounter(tim, COUNTER_MAX / 2);
 }
@@ -222,7 +264,8 @@ int64_t CH32VEncoder::getCount() {
 		overflow += pcnt_count;
 	}
 	pcnt_count = TIM_GetCounter(tim);
-	return pcnt_count + overflow;
+	const int64_t count = pcnt_count + overflow;
+	return reversed ? -count : count;
 }
 
 void CH32VEncoder::clearCount() {

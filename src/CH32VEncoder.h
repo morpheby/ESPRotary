@@ -30,9 +30,9 @@ public:
 	 */
 	CH32VEncoder();
 	~CH32VEncoder();
-	void attachHalfQuad(TIM_TypeDef *tim, int pinChannelA, int pinChannelB);
-	void attachFullQuad(TIM_TypeDef *tim, int pinChannelA, int pinChannelB);
-	void attachSingleEdge(TIM_TypeDef *tim, int pinChannelA, int pinChannelB);
+	void attachHalfQuad(uint32_t pinChannelA, uint32_t pinChannelB);
+	void attachFullQuad(uint32_t pinChannelA, uint32_t pinChannelB);
+	void attachSingleEdge(uint32_t pinChannelA, uint32_t pinChannelB);
 	int64_t getCount();
 	void clearCount();
 	void pauseCount();
@@ -43,11 +43,12 @@ public:
 	void setFilter(uint16_t value);
 	static puType useInternalWeakPullResistors;
 private:
-	void attach(TIM_TypeDef *tim, int pinChannelA, int pinChannelB, encType et);
+	void attach(uint32_t pinChannelA, uint32_t pinChannelB, encType et);
 	bool attached;
+	bool reversed = false;
 	TIM_TypeDef *tim;
 	int64_t overflow = 0;
-	QueueHandle_t queue;
+	QueueHandle_t queue = nullptr;
 };
 
 //Added by Sloeber
